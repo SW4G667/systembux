@@ -40,13 +40,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       </div>
     </div>
   ),
-  errorComponent: ({ error, reset }) => {
+  errorComponent: ({ reset }) => {
     const r = useRouter();
     return (
       <div className="min-h-screen grid place-items-center px-4">
         <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold">Algo deu errado</h1>
-          <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
+          <p className="text-sm text-muted-foreground mt-2">Não foi possível carregar esta página. Tente novamente.</p>
           <button onClick={() => { r.invalidate(); reset(); }} className="mt-6 px-5 py-2.5 rounded-xl bg-gradient-hero text-white">Tentar novamente</button>
         </div>
       </div>
