@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
-import { Instagram, Twitter, MessageCircle, Mail } from "lucide-react";
 
 export function Footer() {
   return (
@@ -9,24 +8,18 @@ export function Footer() {
         <div className="space-y-3">
           <Logo />
           <p className="text-sm text-muted-foreground max-w-xs">
-            A loja brasileira mais confiável de Robux e produtos Roblox. Entrega rápida, suporte 24h e preços imbatíveis.
+            Explore produtos para Roblox, calcule valores estimados e fale com a equipe antes de confirmar sua compra.
           </p>
-          <div className="flex gap-2 pt-2">
-            {[Instagram, Twitter, MessageCircle, Mail].map((I, i) => (
-              <a key={i} href="#" className="w-9 h-9 grid place-items-center rounded-lg glass hover:bg-primary/20 transition-colors">
-                <I size={16}/>
-              </a>
-            ))}
-          </div>
+          <Link to="/support" className="inline-block text-sm text-primary hover:underline">Abrir atendimento →</Link>
         </div>
         <FooterCol title="Loja" links={[
           ["Robux", "/robux"], ["MM2", "/products"], ["Contas", "/products"], ["Gift Cards", "/products"]
         ]}/>
         <FooterCol title="Conta" links={[
-          ["Dashboard", "/dashboard"], ["Meus pedidos", "/dashboard/orders"], ["Afiliados", "/dashboard/affiliates"], ["Cashback", "/dashboard/rewards"]
+          ["Dashboard", "/dashboard"], ["Meus pedidos", "/dashboard"], ["Atendimento", "/support"]
         ]}/>
         <FooterCol title="Suporte" links={[
-          ["FAQ", "/faq"], ["Contato", "/support"], ["Termos", "/terms"], ["Privacidade", "/privacy"]
+          ["Contato", "/support"], ["Sua conta", "/dashboard"]
         ]}/>
       </div>
       <div className="border-t">

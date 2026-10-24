@@ -1,13 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Package } from "lucide-react";
 
 export const Route = createFileRoute("/products")({ component: Products });
+type Product = Database["public"]["Tables"]["products"]["Row"];
 
 function Products() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<Product[]>([]);
   const [cat, setCat] = useState<string>("all");
   useEffect(() => {
     supabase.from("products").select("*").eq("is_active", true).order("is_featured", { ascending: false }).then(({ data }) => setItems(data || []));
@@ -29,16 +32,17 @@ function Products() {
         {filtered.map((p) => (
           <div key={p.id} className="glass rounded-2xl overflow-hidden group">
             <div className="aspect-[16/10] bg-secondary overflow-hidden">
-              <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform"/>
+              {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform"/>
+                : <div className="w-full h-full grid place-items-center bg-gradient-hero/20"><Package className="text-primary" size={44}/></div>}
             </div>
             <div className="p-4">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{p.category}</div>
               <div className="font-semibold mt-1">{p.name}</div>
               <div className="flex items-end justify-between mt-3">
                 <div className="text-xl font-black text-gradient">{brl(p.price)}</div>
-                {p.category === "robux"
-                  ? <Link to="/robux"><Button size="sm" className="bg-gradient-hero">Comprar</Button></Link>
-                  : <Button size="sm" variant="secondary">Em breve</Button>}
+                <Link to={p.category === "robux" ? "/robux" : "/support"}>
+                  <Button size="sm" className="bg-gradient-hero">Consultar</Button>
+                </Link>
               </div>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { AdminBadge } from "./AdminBadge";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { relative } from "@/lib/format";
 
@@ -16,13 +17,14 @@ const nav = [
   { to: "/ranking", label: "Ranking" },
   { to: "/support", label: "Suporte" },
 ];
+type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 export function Navbar() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifs, setNotifs] = useState<any[]>([]);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
   const unread = notifs.filter((n) => !n.is_read).length;
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function Navbar() {
     const ch = supabase
       .channel("notif:" + user.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (p) => {
-        setNotifs((prev) => [p.new as any, ...prev].slice(0, 15));
+        setNotifs((prev) => [p.new as Notification, ...prev].slice(0, 15));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -166,8 +168,8 @@ export function Navbar() {
                       </div>
                       <div className="p-1">
                         <DropItem to="/dashboard" icon={<LayoutDashboard size={15}/>} label="Dashboard"/>
-                        <DropItem to="/dashboard/orders" icon={<ShoppingBag size={15}/>} label="Meus pedidos"/>
-                        <DropItem to="/dashboard/profile" icon={<UserIcon size={15}/>} label="Perfil"/>
+                        <DropItem to="/dashboard" icon={<ShoppingBag size={15}/>} label="Meus pedidos"/>
+                        <DropItem to="/dashboard" icon={<UserIcon size={15}/>} label="Perfil"/>
                         {isAdmin && <DropItem to="/admin" icon={<ShieldAlert size={15} className="text-gold"/>} label="Painel Admin"/>}
                         <button onClick={signOut} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-secondary text-destructive">
                           <LogOut size={15}/> Sair
