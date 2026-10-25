@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { validDiscordInvite } from "@/lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, validDiscordInvite } from "@/lib/site-settings";
 import { brl, relative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +32,8 @@ function asSiteFields(value: Json): PublicSiteFields {
     discord_invite_url: typeof row.discord_invite_url === "string" ? row.discord_invite_url : "",
     announcement: typeof row.announcement === "string" ? row.announcement : "",
     hero_subtitle: typeof row.hero_subtitle === "string" ? row.hero_subtitle : "",
-    tagline: typeof row.tagline === "string" ? row.tagline : "",
-    support_email: typeof row.support_email === "string" ? row.support_email : "",
+    tagline: row.tagline === "Robux com o melhor preço do Brasil" ? DEFAULT_SITE_SETTINGS.tagline : typeof row.tagline === "string" ? row.tagline : "",
+    support_email: row.support_email === "suporte@systembux.com" ? "" : typeof row.support_email === "string" ? row.support_email : "",
   };
 }
 
