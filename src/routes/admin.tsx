@@ -1,20 +1,53 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+import { validDiscordInvite } from "@/lib/site-settings";
 import { brl, relative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Users, ShoppingBag, DollarSign, Megaphone, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, ShoppingBag, DollarSign, Megaphone, Package, Globe, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({ component: Admin });
 
+type PublicSiteFields = {
+  discord_invite_url: string;
+  announcement: string;
+  hero_subtitle: string;
+  tagline: string;
+  support_email: string;
+};
+
+const EMPTY_SITE_FIELDS: PublicSiteFields = {
+  discord_invite_url: "", announcement: "", hero_subtitle: "", tagline: "", support_email: "",
+};
+
+function asSiteFields(value: Json): PublicSiteFields {
+  const row = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    discord_invite_url: typeof row.discord_invite_url === "string" ? row.discord_invite_url : "",
+    announcement: typeof row.announcement === "string" ? row.announcement : "",
+    hero_subtitle: typeof row.hero_subtitle === "string" ? row.hero_subtitle : "",
+    tagline: typeof row.tagline === "string" ? row.tagline : "",
+    support_email: typeof row.support_email === "string" ? row.support_email : "",
+  };
+}
+
 function Admin() {
   const { user, isAdmin, loading } = useAuth();
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState({ revenue: 0, orders: 0, users: 0, pending: 0 });
   const [recent, setRecent] = useState<any[]>([]);
   const [announce, setAnnounce] = useState({ title: "", body: "" });
+  const [siteFields, setSiteFields] = useState<PublicSiteFields>(EMPTY_SITE_FIELDS);
+  const [siteLoading, setSiteLoading] = useState(true);
+  const [siteSaving, setSiteSaving] = useState(false);
+  const [siteError, setSiteError] = useState("");
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) { toast.error("Acesso restrito"); nav({ to: "/" }); }
@@ -37,6 +70,63 @@ function Admin() {
       setRecent(rec || []);
     })();
   }, [isAdmin]);
+
+  const loadSiteSettings = async () => {
+    setSiteLoading(true);
+    setSiteError("");
+    const { data, error } = await supabase.from("settings").select("value").eq("key", "site").maybeSingle();
+    if (error || !data) {
+      setSiteError(error?.message || "Configuração do site não encontrada.");
+    } else {
+      setSiteFields(asSiteFields(data.value));
+    }
+    setSiteLoading(false);
+  };
+
+  useEffect(() => {
+    if (isAdmin) void loadSiteSettings();
+  }, [isAdmin]);
+
+  const saveSiteSettings = async () => {
+    if (!isAdmin || siteSaving) return;
+    const fields = Object.fromEntries(
+      Object.entries(siteFields).map(([key, value]) => [key, value.trim()]),
+    ) as PublicSiteFields;
+    const invite = fields.discord_invite_url ? validDiscordInvite(fields.discord_invite_url) : "";
+    if (invite === null) return setSiteError("Informe um convite HTTPS discord.gg/código ou discord.com/invite/código.");
+    if (fields.announcement.length > 280 || fields.hero_subtitle.length > 240 || fields.tagline.length > 180) {
+      return setSiteError("Revise os limites de caracteres do anúncio, subtítulo e descrição.");
+    }
+    if (fields.support_email.length > 254 || (fields.support_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.support_email))) {
+      return setSiteError("Informe um e-mail de suporte válido ou deixe o campo vazio.");
+    }
+    setSiteSaving(true);
+    setSiteError("");
+    try {
+      // Leia novamente para preservar as outras chaves (por exemplo name) e
+      // não sobrescrever uma alteração feita por outro administrador.
+      const { data: current, error: readError } = await supabase.from("settings")
+        .select("value, updated_at").eq("key", "site").single();
+      if (readError || !current) throw new Error(readError?.message || "Configuração do site não encontrada.");
+      const original = current.value && typeof current.value === "object" && !Array.isArray(current.value)
+        ? current.value : {};
+      const value = { ...original, ...fields, discord_invite_url: invite } as Json;
+      const { data: saved, error: writeError } = await supabase.from("settings")
+        .update({ value, updated_at: new Date().toISOString() })
+        .eq("key", "site").eq("updated_at", current.updated_at)
+        .select("value").maybeSingle();
+      if (writeError || !saved) {
+        throw new Error(writeError?.message || "A configuração mudou ou a gravação não foi autorizada. Recarregue e tente novamente.");
+      }
+      setSiteFields(asSiteFields(saved.value));
+      await queryClient.invalidateQueries({ queryKey: ["public-site-settings"] });
+      toast.success("Configurações públicas do site atualizadas.");
+    } catch (error) {
+      setSiteError(error instanceof Error ? error.message : "Não foi possível salvar as configurações.");
+    } finally {
+      setSiteSaving(false);
+    }
+  };
 
   const updateStatus = async (id: string, status: string) => {
     const patch: any = { status };
@@ -107,6 +197,58 @@ function Admin() {
           <Button onClick={sendAnnouncement} className="w-full mt-3 bg-gradient-hero shadow-glow">Publicar anúncio</Button>
         </div>
       </div>
+
+      <section className="glass-strong rounded-3xl p-6 mt-6" aria-labelledby="site-settings-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2"><Globe className="text-primary" size={20}/><h2 id="site-settings-title" className="text-lg font-semibold">Conteúdo público do site</h2></div>
+            <p className="text-sm text-muted-foreground mt-1">Atualize textos e convite do Discord sem alterar o endereço do backend. O suporte por ticket continua disponível no site.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void loadSiteSettings()} disabled={siteLoading || siteSaving}>
+            <RefreshCw size={15} className="mr-2"/> Recarregar
+          </Button>
+        </div>
+        {siteLoading ? <p className="text-sm text-muted-foreground mt-5">Carregando configurações...</p> : (
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="site-discord" className="text-sm font-medium">Convite do servidor Discord</label>
+              <Input id="site-discord" type="url" maxLength={200} placeholder="https://discord.gg/seuconvite" value={siteFields.discord_invite_url}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, discord_invite_url: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">Deixe vazio para ocultar o botão Comunidade.</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="site-announcement" className="text-sm font-medium">Aviso na página inicial</label>
+              <Textarea id="site-announcement" maxLength={280} rows={2} placeholder="Comunicado opcional para visitantes" value={siteFields.announcement}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, announcement: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">{siteFields.announcement.length}/280 caracteres. Deixe vazio para ocultar.</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="site-subtitle" className="text-sm font-medium">Subtítulo da página inicial</label>
+              <Textarea id="site-subtitle" maxLength={240} rows={2} value={siteFields.hero_subtitle}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, hero_subtitle: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">{siteFields.hero_subtitle.length}/240 caracteres. Vazio usa o texto padrão.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="site-tagline" className="text-sm font-medium">Descrição curta</label>
+              <Input id="site-tagline" maxLength={180} value={siteFields.tagline}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, tagline: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">{siteFields.tagline.length}/180 caracteres. Aparece no rodapé.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="site-email" className="text-sm font-medium">E-mail de suporte</label>
+              <Input id="site-email" type="email" maxLength={254} value={siteFields.support_email}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, support_email: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">Contato público opcional. Nunca coloque credenciais aqui.</p>
+            </div>
+            {siteError && <p className="md:col-span-2 text-sm text-destructive" role="alert">{siteError}</p>}
+            <div className="md:col-span-2 flex justify-end">
+              <Button onClick={() => void saveSiteSettings()} disabled={siteSaving || siteLoading} className="bg-gradient-hero shadow-glow">
+                {siteSaving ? "Salvando..." : "Salvar configurações"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-export function Logo({ size = 32 }: { size?: number }) {
+export function Logo({ size = 32, name = "System Bux" }: { size?: number; name?: string }) {
+  const [first, ...rest] = name.split(/\s+/);
   return (
     <div className="flex items-center gap-2.5">
       <div
@@ -12,8 +13,8 @@ export function Logo({ size = 32 }: { size?: number }) {
         </svg>
       </div>
       <div className="flex flex-col leading-none">
-        <span className="text-base font-bold tracking-tight">
-          System <span className="text-gradient">Bux</span>
+        <span className="text-base font-bold tracking-tight max-w-[180px] truncate" title={name}>
+          {first} {rest.length > 0 && <span className="text-gradient">{rest.join(" ")}</span>}
         </span>
         <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">premium robux</span>
       </div>

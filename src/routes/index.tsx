@@ -1,17 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Zap, Shield, Headphones, Sparkles, Coins, Gift } from "lucide-react";
+import { ArrowRight, Zap, Shield, Headphones, Sparkles, Coins, Gift, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { brl } from "@/lib/format";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/")({ component: Home });
 type Product = Database["public"]["Tables"]["products"]["Row"];
 
 function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const site = useSiteSettings();
 
   useEffect(() => {
     supabase.from("products").select("*").eq("is_active", true).eq("is_featured", true).limit(6).then(({ data }) => setProducts(data || []));
@@ -19,6 +21,11 @@ function Home() {
 
   return (
     <>
+      {site.announcement && (
+        <aside aria-label="Aviso da loja" className="border-b border-primary/20 bg-primary/10">
+          <p className="container mx-auto px-4 py-3 text-center text-sm font-medium text-foreground whitespace-pre-line">{site.announcement}</p>
+        </aside>
+      )}
       {/* HERO */}
       <section className="relative overflow-hidden grid-bg">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,oklch(0.72_0.22_295/0.4),transparent_60%)] pointer-events-none"/>
@@ -31,8 +38,8 @@ function Home() {
               <h1 className="mt-5 text-5xl lg:text-7xl font-black leading-[1.05] tracking-tight">
                 Sua experiência Roblox, <span className="text-gradient animate-gradient bg-gradient-hero">do seu jeito.</span>
               </h1>
-              <p className="mt-5 text-lg text-muted-foreground max-w-xl">
-                Explore o catálogo, calcule uma estimativa e fale com a equipe antes de confirmar disponibilidade, preço e pagamento.
+              <p className="mt-5 text-lg text-muted-foreground max-w-xl whitespace-pre-line">
+                {site.heroSubtitle}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/robux">
@@ -45,6 +52,14 @@ function Home() {
                     Ver loja completa
                   </Button>
                 </Link>
+                {site.discordInviteUrl && (
+                  <Button asChild size="lg" variant="ghost" className="h-12 px-5 glass border border-border/60">
+                    <a href={site.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                      aria-label="Entrar no servidor Discord (abre em nova aba)">
+                      Entrar no Discord <ExternalLink size={17} aria-hidden="true"/>
+                    </a>
+                  </Button>
+                )}
               </div>
               <p className="mt-8 text-sm text-muted-foreground">Sua solicitação e as respostas ficam registradas na sua conta.</p>
             </motion.div>
@@ -57,7 +72,7 @@ function Home() {
                     <span className="w-2.5 h-2.5 rounded-full bg-warning"/>
                     <span className="w-2.5 h-2.5 rounded-full bg-success"/>
                   </div>
-                  <span className="text-xs text-muted-foreground">System Bux</span>
+                  <span className="text-xs text-muted-foreground">{site.name}</span>
                 </div>
                 <h3 className="text-xl font-bold mb-4">Uma compra clara, do início ao fim</h3>
                 <div className="space-y-3 text-sm">
