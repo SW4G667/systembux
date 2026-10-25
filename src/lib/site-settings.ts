@@ -53,11 +53,14 @@ export function parsePublicSiteSettings(value: unknown): PublicSiteSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return DEFAULT_SITE_SETTINGS;
   const fields = value as Record<string, unknown>;
   const email = textField(fields.support_email, 254);
+  // Legacy seed data predates the assisted quotation flow; these defaults have
+  // not been verified as a real support address or a price comparison claim.
+  const tagline = textField(fields.tagline, 180);
 
   return {
     name: textField(fields.name, 60) ?? DEFAULT_SITE_SETTINGS.name,
-    tagline: textField(fields.tagline, 180) ?? DEFAULT_SITE_SETTINGS.tagline,
-    supportEmail: email && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email : null,
+    tagline: tagline && tagline !== "Robux com o melhor preço do Brasil" ? tagline : DEFAULT_SITE_SETTINGS.tagline,
+    supportEmail: email && email.toLowerCase() !== "suporte@systembux.com" && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email : null,
     discordInviteUrl: validDiscordInvite(fields.discord_invite_url),
     announcement: textField(fields.announcement, 280, true),
     heroSubtitle: textField(fields.hero_subtitle, 240, true) ?? DEFAULT_SITE_SETTINGS.heroSubtitle,

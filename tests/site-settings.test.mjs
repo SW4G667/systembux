@@ -34,6 +34,9 @@ test("missing or malformed rows retain usable defaults", () => {
     announcement: "a".repeat(281),
   });
   assert.deepEqual(settings, DEFAULT_SITE_SETTINGS);
+  assert.deepEqual(parsePublicSiteSettings({
+    name: "System Bux", tagline: "Robux com o melhor preço do Brasil", support_email: "suporte@systembux.com",
+  }), DEFAULT_SITE_SETTINGS);
 });
 
 test("only direct HTTPS Discord invite links are exposed", () => {
