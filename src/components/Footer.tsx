@@ -1,37 +1,47 @@
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
-import { Instagram, Twitter, MessageCircle, Mail } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export function Footer() {
+  const site = useSiteSettings();
   return (
     <footer className="mt-24 border-t bg-card/30">
-      <div className="container mx-auto px-4 py-12 grid gap-10 md:grid-cols-4">
+      <div className={`container mx-auto px-4 py-12 grid gap-10 md:grid-cols-2 ${site.discordInviteUrl ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <div className="space-y-3">
-          <Logo />
+          <Logo name={site.name}/>
           <p className="text-sm text-muted-foreground max-w-xs">
-            A loja brasileira mais confiável de Robux e produtos Roblox. Entrega rápida, suporte 24h e preços imbatíveis.
+            {site.tagline}
           </p>
-          <div className="flex gap-2 pt-2">
-            {[Instagram, Twitter, MessageCircle, Mail].map((I, i) => (
-              <a key={i} href="#" className="w-9 h-9 grid place-items-center rounded-lg glass hover:bg-primary/20 transition-colors">
-                <I size={16}/>
-              </a>
-            ))}
-          </div>
+          <Link to="/support" className="inline-block text-sm text-primary hover:underline">Abrir atendimento →</Link>
+          {site.supportEmail && (
+            <a href={`mailto:${site.supportEmail}`} className="block text-sm text-muted-foreground hover:text-foreground break-all">
+              {site.supportEmail}
+            </a>
+          )}
         </div>
         <FooterCol title="Loja" links={[
           ["Robux", "/robux"], ["MM2", "/products"], ["Contas", "/products"], ["Gift Cards", "/products"]
         ]}/>
         <FooterCol title="Conta" links={[
-          ["Dashboard", "/dashboard"], ["Meus pedidos", "/dashboard/orders"], ["Afiliados", "/dashboard/affiliates"], ["Cashback", "/dashboard/rewards"]
+          ["Dashboard", "/dashboard"], ["Meus pedidos", "/dashboard"], ["Atendimento", "/support"]
         ]}/>
         <FooterCol title="Suporte" links={[
-          ["FAQ", "/faq"], ["Contato", "/support"], ["Termos", "/terms"], ["Privacidade", "/privacy"]
+          ["Contato", "/support"], ["Sua conta", "/dashboard"]
         ]}/>
+        {site.discordInviteUrl && (
+          <div>
+            <h4 className="font-semibold mb-3">Comunidade</h4>
+            <a href={site.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+              aria-label="Entrar no servidor Discord (abre em nova aba)"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Entrar no Discord ↗
+            </a>
+          </div>
+        )}
       </div>
       <div className="border-t">
         <div className="container mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} System Bux. Todos os direitos reservados.</span>
+          <span>© {new Date().getFullYear()} {site.name}. Todos os direitos reservados.</span>
           <span>Não afiliado oficialmente à Roblox Corporation.</span>
         </div>
       </div>

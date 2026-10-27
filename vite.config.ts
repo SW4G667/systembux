@@ -6,9 +6,12 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Nitro selects the right server bundle for each deployment target.
+const vercelBuild = process.env.VERCEL === "1";
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-// @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
+  nitro: { preset: vercelBuild ? "vercel" : "cloudflare-module" },
   tanstackStart: {
     server: { entry: "server" },
   },

@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bell, Menu, X, Sparkles, ShoppingBag, LogOut, User as UserIcon, LayoutDashboard, ShieldAlert } from "lucide-react";
+import { Bell, Menu, X, Sparkles, ShoppingBag, LogOut, User as UserIcon, LayoutDashboard, ShieldAlert, ExternalLink } from "lucide-react";
 import { Logo } from "./Logo";
 import { AdminBadge } from "./AdminBadge";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { relative } from "@/lib/format";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 const nav = [
   { to: "/", label: "Início" },
@@ -16,13 +18,15 @@ const nav = [
   { to: "/ranking", label: "Ranking" },
   { to: "/support", label: "Suporte" },
 ];
+type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 
 export function Navbar() {
   const { user, profile, isAdmin, signOut } = useAuth();
+  const site = useSiteSettings();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifs, setNotifs] = useState<any[]>([]);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
   const unread = notifs.filter((n) => !n.is_read).length;
 
   useEffect(() => {
@@ -40,7 +44,7 @@ export function Navbar() {
     const ch = supabase
       .channel("notif:" + user.id)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (p) => {
-        setNotifs((prev) => [p.new as any, ...prev].slice(0, 15));
+        setNotifs((prev) => [p.new as Notification, ...prev].slice(0, 15));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -55,7 +59,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 glass-strong border-b">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <Link to="/" className="shrink-0"><Logo /></Link>
+        <Link to="/" className="shrink-0" aria-label={`${site.name} — início`}><Logo name={site.name}/></Link>
 
         <nav className="hidden lg:flex items-center gap-1">
           {nav.map((n) => (
@@ -68,6 +72,13 @@ export function Navbar() {
               {n.label}
             </Link>
           ))}
+          {site.discordInviteUrl && (
+            <a href={site.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+              aria-label="Entrar no servidor Discord (abre em nova aba)"
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/60">
+              Discord <ExternalLink size={13} aria-hidden="true"/>
+            </a>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -166,8 +177,8 @@ export function Navbar() {
                       </div>
                       <div className="p-1">
                         <DropItem to="/dashboard" icon={<LayoutDashboard size={15}/>} label="Dashboard"/>
-                        <DropItem to="/dashboard/orders" icon={<ShoppingBag size={15}/>} label="Meus pedidos"/>
-                        <DropItem to="/dashboard/profile" icon={<UserIcon size={15}/>} label="Perfil"/>
+                        <DropItem to="/dashboard" icon={<ShoppingBag size={15}/>} label="Meus pedidos"/>
+                        <DropItem to="/dashboard" icon={<UserIcon size={15}/>} label="Perfil"/>
                         {isAdmin && <DropItem to="/admin" icon={<ShieldAlert size={15} className="text-gold"/>} label="Painel Admin"/>}
                         <button onClick={signOut} className="w-full text-left flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-secondary text-destructive">
                           <LogOut size={15}/> Sair
@@ -185,8 +196,9 @@ export function Navbar() {
             </div>
           )}
 
-          <button onClick={() => setOpen(!open)} className="lg:hidden w-10 h-10 grid place-items-center rounded-xl glass">
-            {open ? <X size={18}/> : <Menu size={18}/>}
+          <button onClick={() => setOpen(!open)} className="lg:hidden w-10 h-10 grid place-items-center rounded-xl glass"
+            aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} aria-controls="site-mobile-navigation">
+            {open ? <X size={18} aria-hidden="true"/> : <Menu size={18} aria-hidden="true"/>}
           </button>
         </div>
       </div>
@@ -197,6 +209,7 @@ export function Navbar() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            id="site-mobile-navigation"
             className="lg:hidden border-t overflow-hidden"
           >
             <div className="container mx-auto px-4 py-4 flex flex-col gap-1">
@@ -206,6 +219,13 @@ export function Navbar() {
                   {n.label}
                 </Link>
               ))}
+              {site.discordInviteUrl && (
+                <a href={site.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                  onClick={() => setOpen(false)} aria-label="Entrar no servidor Discord (abre em nova aba)"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-secondary">
+                  Discord <ExternalLink size={14} aria-hidden="true"/>
+                </a>
+              )}
               {!user && (
                 <div className="flex gap-2 pt-2">
                   <Link to="/login" className="flex-1"><Button variant="outline" className="w-full">Entrar</Button></Link>

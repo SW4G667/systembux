@@ -1,6 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Copy, CheckCircle2, Clock, Loader2 } from "lucide-react";
@@ -8,20 +9,23 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/checkout/$id")({ component: Checkout });
+type Order = Database["public"]["Tables"]["orders"]["Row"];
+type Payment = Database["public"]["Tables"]["payments"]["Row"];
 
 function Checkout() {
   const { id } = Route.useParams();
   const nav = useNavigate();
-  const [order, setOrder] = useState<any>(null);
-  const [payment, setPayment] = useState<any>(null);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = async () => {
-    const [{ data: o }, { data: p }] = await Promise.all([
+    const [{ data: o, error: orderError }, { data: p, error: paymentError }] = await Promise.all([
       supabase.from("orders").select("*").eq("id", id).maybeSingle(),
-      supabase.from("payments").select("*").eq("order_id", id).maybeSingle(),
+      supabase.from("payments").select("*").eq("order_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
+    setLoadError(Boolean(orderError || paymentError));
     setOrder(o); setPayment(p); setLoading(false);
   };
 
@@ -32,36 +36,22 @@ function Checkout() {
     const ch = supabase
       .channel(`pay:${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter: `order_id=eq.${id}` }, (p) => {
-        setPayment(p.new);
-        if ((p.new as any)?.status === "approved") {
+        const nextPayment = p.new as Payment;
+        setPayment(nextPayment);
+        if (nextPayment?.status === "approved" && nextPayment?.provider_payment_id) {
           toast.success("Pagamento aprovado! 🎉");
-          setTimeout(() => nav({ to: "/dashboard/orders" }), 1500);
+          setTimeout(() => nav({ to: "/dashboard" }), 1500);
         }
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${id}` }, (p) => setOrder(p.new))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${id}` }, (p) => setOrder(p.new as Order))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id, nav]);
 
-  const generatePix = async () => {
-    if (!order) return;
-    setGenerating(true);
-    // Simulated PIX (VexoPay integration would be a server fn). Insert payment row directly.
-    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    const pixCode = `00020126580014BR.GOV.BCB.PIX0136systembux-${id}-${Math.random().toString(36).slice(2,8)}5204000053039865802BR5910SystemBux6009Sao Paulo62070503***6304ABCD`;
-    const { data, error } = await supabase.from("payments").insert({
-      order_id: id, user_id: order.user_id, provider: "vexopay",
-      amount: order.total_amount, status: "pending",
-      pix_qr_code: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(pixCode)}`,
-      pix_copy_paste: pixCode, expires_at: expires,
-    }).select().single();
-    setGenerating(false);
-    if (error) return toast.error(error.message);
-    setPayment(data);
-  };
-
   if (loading) return <div className="container mx-auto px-4 py-20 text-center"><Loader2 className="animate-spin mx-auto"/></div>;
+  if (loadError) return <div className="container mx-auto px-4 py-20 text-center text-muted-foreground">Não foi possível carregar o pedido. Atualize a página ou fale com o suporte.</div>;
   if (!order) return <div className="container mx-auto px-4 py-20 text-center text-muted-foreground">Pedido não encontrado</div>;
+  const verifiedPayment = Boolean(payment?.provider_payment_id);
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
@@ -81,26 +71,26 @@ function Checkout() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-strong rounded-3xl p-6 shadow-premium">
-          {payment?.status === "approved" ? (
+          {verifiedPayment && payment?.status === "approved" ? (
             <div className="text-center py-6">
               <CheckCircle2 className="mx-auto text-success" size={64}/>
               <div className="text-xl font-bold mt-3">Pagamento aprovado!</div>
               <p className="text-sm text-muted-foreground mt-1">Seu pedido está sendo processado.</p>
             </div>
-          ) : payment ? (
+          ) : verifiedPayment && payment?.pix_copy_paste ? (
             <>
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">Pague com PIX</h3>
-                <span className="inline-flex items-center gap-1 text-xs text-warning"><Clock size={12}/> 15 min</span>
+                <span className="inline-flex items-center gap-1 text-xs text-warning"><Clock size={12}/> {payment.expires_at ? new Date(payment.expires_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Aguardando"}</span>
               </div>
               <div className="grid place-items-center mt-4">
-                <img src={payment.pix_qr_code} alt="QR" className="rounded-xl bg-white p-3 w-56 h-56"/>
+                {payment.pix_qr_code && <img src={payment.pix_qr_code} alt="QR Code PIX" className="rounded-xl bg-white p-3 w-56 h-56"/>}
               </div>
               <div className="mt-4">
                 <div className="text-xs text-muted-foreground mb-1">PIX Copia e Cola</div>
                 <div className="flex gap-2">
                   <code className="flex-1 text-xs glass rounded-lg p-2 truncate">{payment.pix_copy_paste}</code>
-                  <Button size="icon" variant="outline" onClick={() => { navigator.clipboard.writeText(payment.pix_copy_paste); toast.success("Copiado!"); }}>
+                  <Button size="icon" variant="outline" onClick={() => { if (payment.pix_copy_paste) { navigator.clipboard.writeText(payment.pix_copy_paste); toast.success("Copiado!"); } }}>
                     <Copy size={15}/>
                   </Button>
                 </div>
@@ -111,10 +101,9 @@ function Checkout() {
             </>
           ) : (
             <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground mb-4">Gere o código PIX para pagar.</p>
-              <Button onClick={generatePix} disabled={generating} className="bg-gradient-hero shadow-glow">
-                {generating ? "Gerando..." : "Gerar PIX"}
-              </Button>
+              <h3 className="font-semibold">Pagamento pelo site indisponível</h3>
+              <p className="text-sm text-muted-foreground my-4">Ainda não há um gateway PIX conectado a este checkout. Nenhuma cobrança foi gerada. Nossa equipe pode orientar você sobre este pedido.</p>
+              <Link to="/support"><Button className="bg-gradient-hero shadow-glow">Falar com suporte</Button></Link>
             </div>
           )}
         </motion.div>

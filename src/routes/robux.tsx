@@ -20,20 +20,29 @@ function RobuxPage() {
   const [loading, setLoading] = useState(false);
 
   const total = useMemo(() => robuxToBRL(amount), [amount]);
-  const valid = amount >= 150 && nick.length >= 3 && /roblox\.com\/.*game-pass/i.test(gp);
+  const valid = Number.isInteger(amount) && amount >= 150 && amount <= 10000 && /^[A-Za-z0-9_]{3,20}$/.test(nick.trim()) && /^https:\/\/(?:www\.)?roblox\.com\/(?:[a-z]{2}\/)?game-pass\/\d+(?:\/[^\s]*)?$/i.test(gp.trim());
 
   const buy = async () => {
     if (!user) { toast.error("Faça login para comprar"); nav({ to: "/login" }); return; }
     if (!valid) return toast.error("Verifique os campos");
     setLoading(true);
-    const { data, error } = await supabase.from("orders").insert({
-      user_id: user.id, product_name: `${amount} Robux`, product_category: "robux",
-      quantity: 1, unit_price: total, total_amount: total,
-      roblox_nick: nick, gamepass_url: gp, robux_amount: amount, status: "pending",
-    }).select().single();
+    const { data, error } = await supabase.from("tickets").insert({
+      user_id: user.id, subject: `Cotação de ${amount.toLocaleString("pt-BR")} Robux`,
+    }).select("id").single();
+    if (!error && data) {
+      const message = `Quantidade: ${amount.toLocaleString("pt-BR")} Robux\nNick Roblox: ${nick.trim()}\nGame Pass: ${gp.trim()}\nEstimativa exibida: ${brl(total)}. Confirmar disponibilidade, preço final e pagamento com a equipe.`;
+      const result = await supabase.from("ticket_messages").insert({ ticket_id: data.id, user_id: user.id, is_admin: false, message });
+      if (result.error) {
+        setLoading(false);
+        toast.error("O atendimento foi aberto, mas os detalhes não foram enviados. Informe o nick e a Game Pass no ticket.");
+        nav({ to: "/support" });
+        return;
+      }
+    }
     setLoading(false);
     if (error) return toast.error(error.message);
-    nav({ to: "/checkout/$id", params: { id: data.id } });
+    toast.success("Solicitação enviada. Acompanhe o atendimento na sua conta.");
+    nav({ to: "/support" });
   };
 
   return (
@@ -43,8 +52,8 @@ function RobuxPage() {
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-hero grid place-items-center shadow-glow"><Coins className="text-white"/></div>
             <div>
-              <h1 className="text-2xl font-bold">Comprar Robux</h1>
-              <p className="text-sm text-muted-foreground">100 Robux = R$3,80 · Mínimo 150 Robux</p>
+              <h1 className="text-2xl font-bold">Cotação de Robux</h1>
+              <p className="text-sm text-muted-foreground">Estimativa de R$3,80 por 100 Robux · mínimo 150</p>
             </div>
           </div>
 
@@ -81,24 +90,24 @@ function RobuxPage() {
           <div className="mt-5 flex gap-3 p-4 rounded-xl bg-warning/10 border border-warning/30">
             <AlertTriangle className="text-warning shrink-0" size={20}/>
             <div className="text-sm">
-              <strong>Atenção:</strong> desative <em>preços regionais</em> da gamepass. Configure-a no valor correto para que recebamos exatamente o valor para entregar os {amount} Robux.
+              <strong>Antes de solicitar:</strong> desative <em>preços regionais</em> da Game Pass. A equipe confirmará disponibilidade, preço final e forma de pagamento no atendimento.
             </div>
           </div>
         </div>
 
         <div className="glass-strong rounded-3xl p-8 shadow-premium h-fit lg:sticky lg:top-24">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Resumo do pedido</div>
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">Prévia da cotação</div>
           <div className="mt-3 flex justify-between"><span>Robux</span><strong>{amount.toLocaleString("pt-BR")}</strong></div>
           <div className="mt-2 flex justify-between text-sm text-muted-foreground"><span>Preço unitário</span><span>R$ 3,80 / 100</span></div>
           <div className="my-5 border-t"/>
           <div className="flex justify-between items-end">
-            <span className="text-muted-foreground">Total</span>
+            <span className="text-muted-foreground">Valor estimado</span>
             <span className="text-3xl font-black text-gradient">{brl(total)}</span>
           </div>
           <Button onClick={buy} disabled={!valid || loading} className="w-full h-12 mt-6 bg-gradient-hero shadow-glow text-base">
-            {loading ? "Gerando PIX..." : <>Pagar com PIX <ArrowRight className="ml-1" size={18}/></>}
+            {loading ? "Abrindo atendimento..." : <>Solicitar cotação <ArrowRight className="ml-1" size={18}/></>}
           </Button>
-          <div className="text-[11px] text-muted-foreground text-center mt-3">Entrega automática após pagamento aprovado</div>
+          <div className="text-[11px] text-muted-foreground text-center mt-3">Esta etapa não cria pedido nem cobrança.</div>
         </div>
       </div>
     </div>
