@@ -7,6 +7,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { SiteMetadata } from "@/components/SiteMetadata";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -74,6 +75,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <SiteMetadata />
         <div className="min-h-screen flex flex-col">
           <Navbar />
           <main className="flex-1"><Outlet /></main>

@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { brl } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, ArrowRight, Package, RefreshCw, Sparkles } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/products")({ component: Products });
 type Product = Database["public"]["Tables"]["products"]["Row"];
@@ -14,6 +15,7 @@ const categoryNames: Record<string, string> = {
 };
 
 function Products() {
+  const site = useSiteSettings();
   const [items, setItems] = useState<Product[]>([]);
   const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ function Products() {
   return (
     <div className="container mx-auto px-4 py-10 lg:py-14">
       <div className="max-w-2xl">
-        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary"><Sparkles size={15} aria-hidden="true"/> Catálogo System Bux</div>
+        <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary"><Sparkles size={15} aria-hidden="true"/> Catálogo {site.name}</div>
         <h1 className="text-3xl lg:text-5xl font-black tracking-tight mt-2">Encontre o que procura</h1>
         <p className="text-muted-foreground mt-3">Veja os itens disponíveis para consulta. Nossa equipe confirma valor, estoque e entrega antes de qualquer pagamento.</p>
       </div>

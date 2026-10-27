@@ -24,6 +24,10 @@ function textField(value: unknown, maxLength: number, multiline = false): string
   return trimmed;
 }
 
+export function validSiteName(value: unknown): string | null {
+  return textField(value, 60);
+}
+
 export function validDiscordInvite(value: unknown): string | null {
   const input = textField(value, 240);
   if (!input) return null;
@@ -58,7 +62,7 @@ export function parsePublicSiteSettings(value: unknown): PublicSiteSettings {
   const tagline = textField(fields.tagline, 180);
 
   return {
-    name: textField(fields.name, 60) ?? DEFAULT_SITE_SETTINGS.name,
+    name: validSiteName(fields.name) ?? DEFAULT_SITE_SETTINGS.name,
     tagline: tagline && tagline !== "Robux com o melhor preço do Brasil" ? tagline : DEFAULT_SITE_SETTINGS.tagline,
     supportEmail: email && email.toLowerCase() !== "suporte@systembux.com" && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email : null,
     discordInviteUrl: validDiscordInvite(fields.discord_invite_url),

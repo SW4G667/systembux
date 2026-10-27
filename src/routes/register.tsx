@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/register")({ component: Register });
 
 function Register() {
+  const site = useSiteSettings();
   const nav = useNavigate();
   const [username, setU] = useState(""); const [email, setEmail] = useState(""); const [pw, setPw] = useState(""); const [loading, setLoading] = useState(false);
   const submit = async (e: React.FormEvent) => {
@@ -26,7 +28,7 @@ function Register() {
   return (
     <div className="min-h-[80vh] grid place-items-center px-4 py-10">
       <div className="w-full max-w-md glass-strong rounded-3xl p-8 shadow-premium">
-        <div className="text-center"><Logo size={40}/></div>
+        <div className="text-center"><Logo size={40} name={site.name}/></div>
         <h1 className="text-2xl font-bold text-center mt-6">Criar conta grátis</h1>
         <p className="text-sm text-muted-foreground text-center mt-1">Ganhe 50 pontos de boas-vindas</p>
         <form onSubmit={submit} className="space-y-3 mt-6">

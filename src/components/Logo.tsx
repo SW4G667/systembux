@@ -1,4 +1,6 @@
-export function Logo({ size = 32, name = "System Bux" }: { size?: number; name?: string }) {
+import { DEFAULT_SITE_SETTINGS } from "@/lib/site-settings";
+
+export function Logo({ size = 32, name = DEFAULT_SITE_SETTINGS.name }: { size?: number; name?: string }) {
   const [first, ...rest] = name.split(/\s+/);
   return (
     <div className="flex items-center gap-2.5">

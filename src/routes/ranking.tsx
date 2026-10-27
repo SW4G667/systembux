@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { Trophy } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/ranking")({ component: Ranking });
 
 function Ranking() {
+  const site = useSiteSettings();
   const [top, setTop] = useState<any[]>([]);
   useEffect(() => {
     supabase.from("profiles").select("username, avatar_url, total_spent, vip_tier, points").order("total_spent", { ascending: false }).limit(20).then(({ data }) => setTop(data || []));
@@ -16,7 +18,7 @@ function Ranking() {
       <div className="text-center">
         <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-gold grid place-items-center shadow-gold"><Trophy className="text-yellow-950"/></div>
         <h1 className="text-3xl lg:text-4xl font-bold mt-3">Ranking de Clientes</h1>
-        <p className="text-muted-foreground mt-1">Top compradores da System Bux</p>
+        <p className="text-muted-foreground mt-1">Top compradores de {site.name}</p>
       </div>
       <div className="mt-8 glass-strong rounded-3xl p-3 shadow-premium">
         {top.map((u, i) => (

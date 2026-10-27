@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { DEFAULT_SITE_SETTINGS, validDiscordInvite } from "@/lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, validDiscordInvite, validSiteName } from "@/lib/site-settings";
 import { brl, relative } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/admin")({ component: Admin });
 
 type PublicSiteFields = {
+  name: string;
   discord_invite_url: string;
   announcement: string;
   hero_subtitle: string;
@@ -23,12 +24,13 @@ type PublicSiteFields = {
 };
 
 const EMPTY_SITE_FIELDS: PublicSiteFields = {
-  discord_invite_url: "", announcement: "", hero_subtitle: "", tagline: "", support_email: "",
+  name: DEFAULT_SITE_SETTINGS.name, discord_invite_url: "", announcement: "", hero_subtitle: "", tagline: "", support_email: "",
 };
 
 function asSiteFields(value: Json): PublicSiteFields {
   const row = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
+    name: typeof row.name === "string" ? row.name : DEFAULT_SITE_SETTINGS.name,
     discord_invite_url: typeof row.discord_invite_url === "string" ? row.discord_invite_url : "",
     announcement: typeof row.announcement === "string" ? row.announcement : "",
     hero_subtitle: typeof row.hero_subtitle === "string" ? row.hero_subtitle : "",
@@ -48,6 +50,7 @@ function Admin() {
   const [siteLoading, setSiteLoading] = useState(true);
   const [siteSaving, setSiteSaving] = useState(false);
   const [siteError, setSiteError] = useState("");
+  const [siteVersion, setSiteVersion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) { toast.error("Acesso restrito"); nav({ to: "/" }); }
@@ -74,11 +77,13 @@ function Admin() {
   const loadSiteSettings = async () => {
     setSiteLoading(true);
     setSiteError("");
-    const { data, error } = await supabase.from("settings").select("value").eq("key", "site").maybeSingle();
+    const { data, error } = await supabase.from("settings").select("value, updated_at").eq("key", "site").maybeSingle();
     if (error || !data) {
+      setSiteVersion(null);
       setSiteError(error?.message || "Configuração do site não encontrada.");
     } else {
       setSiteFields(asSiteFields(data.value));
+      setSiteVersion(data.updated_at);
     }
     setSiteLoading(false);
   };
@@ -88,10 +93,12 @@ function Admin() {
   }, [isAdmin]);
 
   const saveSiteSettings = async () => {
-    if (!isAdmin || siteSaving) return;
+    if (!isAdmin || siteSaving || siteLoading) return;
     const fields = Object.fromEntries(
       Object.entries(siteFields).map(([key, value]) => [key, value.trim()]),
     ) as PublicSiteFields;
+    if (!validSiteName(fields.name)) return setSiteError("Informe um nome de 1 a 60 caracteres, em uma única linha.");
+    if (!siteVersion) return setSiteError("Recarregue as configurações antes de salvar.");
     const invite = fields.discord_invite_url ? validDiscordInvite(fields.discord_invite_url) : "";
     if (invite === null) return setSiteError("Informe um convite HTTPS discord.gg/código ou discord.com/invite/código.");
     if (fields.announcement.length > 280 || fields.hero_subtitle.length > 240 || fields.tagline.length > 180) {
@@ -108,17 +115,21 @@ function Admin() {
       const { data: current, error: readError } = await supabase.from("settings")
         .select("value, updated_at").eq("key", "site").single();
       if (readError || !current) throw new Error(readError?.message || "Configuração do site não encontrada.");
+      if (current.updated_at !== siteVersion) {
+        throw new Error("A configuração foi alterada no Manager ou em outra sessão. Recarregue antes de salvar.");
+      }
       const original = current.value && typeof current.value === "object" && !Array.isArray(current.value)
         ? current.value : {};
       const value = { ...original, ...fields, discord_invite_url: invite } as Json;
       const { data: saved, error: writeError } = await supabase.from("settings")
         .update({ value, updated_at: new Date().toISOString() })
-        .eq("key", "site").eq("updated_at", current.updated_at)
-        .select("value").maybeSingle();
+        .eq("key", "site").eq("updated_at", siteVersion)
+        .select("value, updated_at").maybeSingle();
       if (writeError || !saved) {
         throw new Error(writeError?.message || "A configuração mudou ou a gravação não foi autorizada. Recarregue e tente novamente.");
       }
       setSiteFields(asSiteFields(saved.value));
+      setSiteVersion(saved.updated_at);
       await queryClient.invalidateQueries({ queryKey: ["public-site-settings"] });
       toast.success("Configurações públicas do site atualizadas.");
     } catch (error) {
@@ -210,6 +221,12 @@ function Admin() {
         </div>
         {siteLoading ? <p className="text-sm text-muted-foreground mt-5">Carregando configurações...</p> : (
           <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="site-name" className="text-sm font-medium">Nome público do projeto</label>
+              <Input id="site-name" maxLength={60} value={siteFields.name}
+                onChange={(event) => setSiteFields((previous) => ({ ...previous, name: event.target.value }))}/>
+              <p className="text-xs text-muted-foreground">Atualiza o nome exibido na loja, no rodapé e no título da página.</p>
+            </div>
             <div className="space-y-2 md:col-span-2">
               <label htmlFor="site-discord" className="text-sm font-medium">Convite do servidor Discord</label>
               <Input id="site-discord" type="url" maxLength={200} placeholder="https://discord.gg/seuconvite" value={siteFields.discord_invite_url}
